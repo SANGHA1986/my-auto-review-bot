@@ -174,28 +174,47 @@ document.addEventListener('DOMContentLoaded', function() {
     if (openSignupModalBtn) openSignupModalBtn.addEventListener('click', () => { if(signupModal) signupModal.style.display = 'flex'; });
     if (logoutBtn) logoutBtn.addEventListener('click', () => { localStorage.removeItem('supabase.auth.token'); updateUserUI(null); });
 
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const email = loginForm.querySelector('#login-email').value.trim();
-            const password = loginForm.querySelector('#login-password').value;
-            loginMessageDiv.textContent = '로그인 중...';
-            try {
-                const response = await fetch('/.netlify/functions/loginUser', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-                const result = await response.json();
-                if (result.success) {
-                    localStorage.setItem('supabase.auth.token', JSON.stringify(result.data.session));
-                    updateUserUI(result.data.user);
-                    loginMessageDiv.textContent = '로그인 성공!';
-                    setTimeout(() => { loginModal.style.display = 'none'; }, 1000);
-                } else {
-                    loginMessageDiv.textContent = result.message || '로그인 실패.';
-                }
-            } catch (error) {
-                loginMessageDiv.textContent = '서버 통신 오류.';
-            }
-        });
-    }
+    // ★★★ 이 부분을 아래 코드로 통째로 바꿔주세요! ★★★
+ if (loginForm) {
+     loginForm.addEventListener('submit', async function(e) {
+         e.preventDefault();
+         const email = loginForm.querySelector('#login-email').value.trim();
+         const password = loginForm.querySelector('#login-password').value;
+         loginMessageDiv.textContent = '로그인 중...';
+         
+         try {
+             const response = await fetch('/.netlify/functions/loginUser', { 
+                 method: 'POST', 
+                 headers: { 'Content-Type': 'application/json' }, 
+                 body: JSON.stringify({ email, password }) 
+             });
+             
+             // --- 여기가 바로 '투시경'입니다 ---
+             const resultText = await response.text(); // 서버가 보낸 답장을 그대로 텍스트로 읽습니다.
+             console.log("서버의 진짜 응답:", resultText); // 콘솔에 진짜 응답을 출력합니다.
+             
+             try {
+                 const result = JSON.parse(resultText); // 그 다음에 JSON으로 변환을 시도합니다.
+                 if (result.success) {
+                     localStorage.setItem('supabase.auth.token', JSON.stringify(result.data.session));
+                     updateUserUI(result.data.user);
+                     loginMessageDiv.textContent = '로그인 성공!';
+                     setTimeout(() => { loginModal.style.display = 'none'; }, 1000);
+                 } else {
+                     // "서버 통신 오류" 대신, 서버가 보낸 진짜 메시지를 보여줍니다.
+                     loginMessageDiv.textContent = "로그인 실패: " + (result.message || '알 수 없는 서버 응답');
+                 }
+             } catch (jsonError) {
+                 // JSON 변환에 실패했다면, 서버가 보낸 원본 텍스트를 그대로 보여줍니다.
+                 loginMessageDiv.textContent = "서버 응답 오류: " + resultText;
+             }
+             
+         } catch (error) {
+             loginMessageDiv.textContent = '서버와 연결할 수 없습니다.';
+             console.error("Fetch Error:", error);
+         }
+     });
+ }
 
     if (signupForm) {
         signupForm.addEventListener('submit', async function(e) {
