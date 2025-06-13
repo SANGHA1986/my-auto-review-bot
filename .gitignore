@@ -1,0 +1,8 @@
+# 로컬 의존성 폴더 (절대 올리지 않음)
+node_modules/
+
+# 로컬 환경 변수 파일 (API 키 등 비밀 정보)
+.env
+
+# Netlify가 생성하는 로컬 임시 폴더
+.netlify/
