@@ -1,8 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM 로드 완료 - 최종 안정화 스크립트 실행 시작");
+    console.log("DOM 로드 완료 - 멀티 차트 지원 최종 스크립트 실행");
 
     // --- 1. HTML 요소 변수 선언 ---
-    // 버튼 및 UI 요소
     const refreshButton = document.getElementById('refresh-button');
     const resultArea = document.getElementById('result-area');
     const sentimentSummaryDiv = document.getElementById('sentiment-summary');
@@ -17,101 +16,149 @@ document.addEventListener('DOMContentLoaded', function() {
     const logoutBtn = document.getElementById('logout-btn');
     const loginForm = document.getElementById('login-form');
     const loginMessageDiv = document.getElementById('login-message');
+    // 회원가입 폼은 현재 기능이 없으므로 변수 선언은 생략합니다.
 
     let currentUser = null;
-    let sentimentChart = null; // 차트 객체를 저장할 변수
+    let charts = {}; // 여러 개의 차트 객체를 관리하기 위한 객체
 
     // --- 2. 핵심 기능 함수 선언 ---
 
     /**
-     * [해결책 3] 상세 감성 데이터로 도넛 차트를 그리는 함수
+     * 모든 차트를 그리기 전에 기존 차트를 파괴하는 헬퍼 함수
      */
-    function renderSentimentChart(sentimentData) {
-        const chartContainer = document.getElementById('d_chart_1');
-        if (!chartContainer) return;
+    function destroyAllCharts() {
+        for (const chartId in charts) {
+            if (charts[chartId]) {
+                charts[chartId].destroy();
+            }
+        }
+        charts = {}; // 차트 관리 객체 초기화
+    }
 
-        // 이전 차트가 있으면 파괴하여 중복 생성을 방지
-        if (sentimentChart) {
-            sentimentChart.destroy();
+    /**
+     * 막대 그래프를 그리는 범용 함수
+     */
+    function renderBarChart(canvasId, title, labels, data) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.warn(`Canvas with id '${canvasId}' not found.`);
+            return;
         }
 
-        const labels = sentimentData.map(d => d.label);
-        const data = sentimentData.map(d => d.count);
+        charts[canvasId] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '언급 횟수',
+                    data: data,
+                    backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                    borderColor: 'rgba(52, 152, 219, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', // 가로 막대 그래프
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: title, font: { size: 16 } }
+                }
+            }
+        });
+    }
+    
+    /**
+     * 도넛 그래프를 그리는 함수
+     */
+    function renderDoughnutChart(canvasId, title, labels, data) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.warn(`Canvas with id '${canvasId}' not found.`);
+            return;
+        }
+        
+        const backgroundColors = ['#2ecc71', '#3498db', '#f1c40f', '#e74c3c', '#c0392b', '#95a5a6'];
 
-        sentimentChart = new Chart(chartContainer, {
+        charts[canvasId] = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: '감성 분포',
+                    label: '분포',
                     data: data,
-                    backgroundColor: [
-                        '#2ecc71', // 긍정
-                        '#3498db', // 매우 긍정
-                        '#f1c40f', // 중립
-                        '#e74c3c', // 부정
-                        '#c0392b'  // 매우 부정
-                    ],
+                    backgroundColor: backgroundColors.slice(0, data.length),
                     hoverOffset: 4
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'top',
-                    },
-                    title: {
-                        display: true,
-                        text: '상세 감성 분포 그래프'
-                    }
+                    legend: { position: 'top' },
+                    title: { display: true, text: title, font: { size: 16 } }
                 }
             }
         });
     }
 
     /**
-     * AI 분석 결과를 화면에 표시하는 함수 (차트 렌더링 포함)
+     * AI 분석 결과를 받아 모든 차트와 텍스트를 표시하는 메인 함수
      */
     function displayLatestAnalysis(analysisData) {
-        if (!resultArea || !sentimentSummaryDiv || !diagnosticChartsDiv) return;
-
+        if (!resultArea) return;
         const details = analysisData.analysis_data; 
-        
         if (!details) {
             alert('상세 분석 데이터가 존재하지 않습니다.');
             return;
         }
 
         resultArea.style.display = 'block';
-        diagnosticChartsDiv.style.display = 'grid';
+        if(diagnosticChartsDiv) diagnosticChartsDiv.style.display = 'grid';
 
-        // [해결책 3] 상세 감성 데이터가 있으면 차트 그리기 함수 호출
+        destroyAllCharts(); // 기존 차트 모두 삭제
+
+        // 1. 상세 감성 분포 (도넛 차트) - d_chart_1 위치에 그림
         if (details.detailedSentiment && details.detailedSentiment.length > 0) {
-            renderSentimentChart(details.detailedSentiment);
+            const labels = details.detailedSentiment.map(d => d.label);
+            const data = details.detailedSentiment.map(d => d.count);
+            renderDoughnutChart('sentimentDoughnutChart', '상세 감성 분포', labels, data);
         }
 
+        // 2. 주요 키워드 (막대 차트) - d_chart_2 위치에 그림
+        if (details.topKeywords && details.topKeywords.length > 0) {
+            const labels = details.topKeywords.map(d => d.keyword);
+            const data = details.topKeywords.map(d => d.count);
+            renderBarChart('keywordBarChart', '주요 키워드 언급 빈도', labels, data);
+        }
+
+        // 3. 카테고리별 언급 (막대 차트) - d_chart_3 위치에 그림
+        if (details.categories && details.categories.length > 0) {
+            const labels = details.categories.map(d => d.name);
+            const data = details.categories.map(d => d.mentions);
+            renderBarChart('categoryBarChart', '카테고리별 언급 횟수', labels, data);
+        }
+
+        // 텍스트 분석 결과 표시
         let summaryHTML = `
             <h3>AI 심층 분석 요약</h3>
             <p style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; line-height: 1.7;">
                 ${details.customSummary || '요약 정보가 없습니다.'}
             </p>
-            <hr style="margin: 25px 0;">
-            <h4>주요 개선 제안</h4>
+            <hr style="margin: 25px 0;"><h4>주요 개선 제안</h4>
             <ul>
                 ${(details.recommendations && details.recommendations.length > 0)
-                    ? details.recommendations.map(rec => `<li><strong>${rec.proposal || '알수없음'}:</strong> ${rec.expectedEffect || '내용없음'}</li>`).join('')
+                    ? details.recommendations.map(rec => `<li><strong>${rec.proposal}:</strong> ${rec.expectedEffect}</li>`).join('')
                     : '<li>제안 사항이 없습니다.</li>'
                 }
             </ul>
         `;
-        sentimentSummaryDiv.innerHTML = summaryHTML;
+        if(sentimentSummaryDiv) sentimentSummaryDiv.innerHTML = summaryHTML;
+        
         resultArea.scrollIntoView({ behavior: 'smooth' });
     }
 
-    /**
-     * 로그인/로그아웃 상태에 따라 화면 UI를 변경하는 함수
-     */
     function updateUserUI(user) {
         currentUser = user;
         if (user && user.email) {
@@ -130,9 +177,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * 페이지 로드 시, 브라우저에 저장된 로그인 정보가 있는지 확인하는 함수
-     */
     async function checkLoginStatus() {
         const storedTokenData = localStorage.getItem('supabase.auth.token');
         if (storedTokenData) {
@@ -150,7 +194,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 3. 이벤트 리스너 연결 ---
 
-    // '최신 분석 결과 불러오기' 버튼
     if (refreshButton) {
         refreshButton.addEventListener('click', async function() {
             if (!currentUser) {
@@ -175,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // '로그인' 폼 제출
     if (loginForm) {
         loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -203,7 +245,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // '로그아웃' 버튼
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
             localStorage.removeItem('supabase.auth.token');
@@ -212,40 +253,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // [해결책 1, 2] 모든 모달(팝업창) 관련 버튼 기능 연결
     function setupModalListeners() {
-        const allCloseButtons = document.querySelectorAll('.close-btn, .cancel-btn');
+        const allCloseButtons = document.querySelectorAll('.close-btn, #cancel-login-btn, #cancel-signup-btn');
 
         if (openLoginModalBtn) {
-            openLoginModalBtn.addEventListener('click', () => {
-                loginModal.style.display = 'flex';
-            });
+            openLoginModalBtn.addEventListener('click', () => loginModal.style.display = 'flex');
         }
         if (openSignupModalBtn) {
-            openSignupModalBtn.addEventListener('click', () => {
-                signupModal.style.display = 'flex';
-            });
+            openSignupModalBtn.addEventListener('click', () => signupModal.style.display = 'flex');
         }
         
         allCloseButtons.forEach(button => {
             button.addEventListener('click', () => {
                 if (loginModal) loginModal.style.display = 'none';
                 if (signupModal) signupModal.style.display = 'none';
-                // 다른 모달이 있다면 여기에 추가
             });
         });
 
         window.addEventListener('click', (event) => {
-            if (event.target === loginModal) {
-                loginModal.style.display = 'none';
-            }
-            if (event.target === signupModal) {
-                signupModal.style.display = 'none';
-            }
+            if (event.target === loginModal) loginModal.style.display = 'none';
+            if (event.target === signupModal) signupModal.style.display = 'none';
         });
     }
     
     // --- 4. 초기 실행 코드 ---
     checkLoginStatus();
-    setupModalListeners(); // 모달 리스너 함수 호출
+    setupModalListeners();
 });
