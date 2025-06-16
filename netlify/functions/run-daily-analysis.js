@@ -72,7 +72,7 @@ async function sendEmailReport(analysisData) {
 
     try {
         await resend.emails.send({
-            from: 'scimiter2010@gmail.com', // ★★★ Resend에 등록한 도메인 이메일 주소로 변경하세요! ★★★
+            from: 'onboarding@resend.dev', // ★★★ Resend에 등록한 도메인 이메일 주소로 변경하세요! ★★★
             to: 'scimiter2001@naver.com',   // ★★★ 파트너님께서 리포트 받으실 이메일 주소로 변경하세요! ★★★
             subject: `[자동 분석 리포트] ${today}자 리뷰 분석 결과입니다.`,
             html: emailHtml,
