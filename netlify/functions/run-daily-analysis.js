@@ -55,31 +55,29 @@ async function scrapeGoogleReviews() {
 async function sendEmailReport(analysisData) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const today = new Date().toISOString().slice(0, 10);
-
-    let emailHtml = `
-        <h1>📈 ${today} 리뷰 분석 리포트</h1>
-        <h2>AI 심층 분석 요약</h2>
-        <p>${analysisData.executiveSummary || '요약 정보 없음'}</p>
-        <hr>
-        <h2>데이터 기반 실행 계획</h2>
-        <ul>`;
+    
+    let emailHtml = `<h1>📈 <span class="math-inline">\{today\} 리뷰 분석 리포트</h1\><h2\>AI 심층 분석 요약</h2\><p\></span>{analysisData.executiveSummary || '요약 정보 없음'}</p><hr><h2>데이터 기반 실행 계획</h2><ul>`;
     analysisData.actionableRecommendations?.forEach(rec => {
         emailHtml += `<li><strong>${rec.proposal}</strong><br><small>근거: ${rec.basis}</small></li>`;
     });
-    emailHtml += `</ul><hr><h2>대표 긍정/부정 리뷰</h2>`;
-    emailHtml += `<h3>👍 긍정 리뷰</h3><p><i>"${analysisData.representativePositiveReviews?.join('"<br>"')}"</i></p>`;
-    emailHtml += `<h3>👎 부정 리뷰</h3><p><i>"${analysisData.representativeNegativeReviews?.join('"<br>"')}"</i></p>`;
+    emailHtml += `</ul><hr><h2>대표 긍정/부정 리뷰</h2><h3>👍 긍정 리뷰</h3><p><i>"<span class="math-inline">\{analysisData\.representativePositiveReviews?\.join\('"<br\>"'\)\}"</i\></p\><h3\>👎 부정 리뷰</h3\><p\><i\>"</span>{analysisData.representativeNegativeReviews?.join('"<br>"')}"</i></p>`;
 
     try {
+        console.log("이메일 발송을 시도합니다..."); // 디버깅용 로그 추가
+
         await resend.emails.send({
-            from: 'onboarding@resend.dev', // ★★★ Resend에 등록한 도메인 이메일 주소로 변경하세요! ★★★
-            to: 'scimiter2010@gmail.com',   // ★★★ 파트너님께서 리포트 받으실 이메일 주소로 변경하세요! ★★★
-            subject: `[자동 분석 리포트] ${today}자 리뷰 분석 결과입니다.`,
+            // ★★★★★ 바로 이 두 줄이 가장 중요합니다 ★★★★★
+            from: 'onboarding@resend.dev',
+            to: 'scimiter2010@gmail.com', // 파트너님께서 Resend에 가입한 이메일 주소와 동일해야 합니다.
+            // ★★★★★ 만약 Resend 가입 이메일이 다르다면, 이 부분을 가입 이메일로 꼭 수정해주세요! ★★★★★
+
+            subject: `[자동 분석 리포트] ${today}자 테스트입니다.`,
             html: emailHtml,
         });
         console.log('성공: 분석 리포트 이메일을 성공적으로 발송했습니다.');
+
     } catch (error) {
-        console.error('오류: 이메일 발송에 실패했습니다.', error);
+        console.error('오류: 이메일 발송에 실패했습니다. 원인:', error); // 더 자세한 오류 로그
     }
 }
 
